@@ -1,0 +1,7 @@
+**
+!Dockerfile
+!server.mjs
+!mock-ai.mjs
+!index.html
+!test/
+!test/**
