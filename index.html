@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Входящие заявки</title>
+  <style>
+    body { max-width: 40rem; margin: 2rem auto; padding: 0 1rem; font: 1rem/1.5 system-ui, sans-serif; }
+    textarea { box-sizing: border-box; display: block; width: 100%; margin: .5rem 0; padding: .5rem; font: inherit; }
+    button { padding: .4rem .8rem; font: inherit; }
+    pre { white-space: pre-wrap; }
+  </style>
+</head>
+<body>
+  <h1>Входящие заявки</h1>
+  <form>
+    <label for="message">Текст заявки</label>
+    <textarea id="message" rows="4"></textarea>
+    <button type="submit">Разобрать заявку</button>
+  </form>
+  <pre id="result" aria-live="polite"></pre>
+  <script type="module">
+    const form = document.querySelector("form");
+    const result = document.querySelector("#result");
+    const button = form.querySelector("button");
+    const topics = { delivery: "Доставка", pricing: "Цены", other: "Другое" };
+    form.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      if (button.disabled) return;
+      button.disabled = true;
+      result.textContent = "Обрабатываем заявку…";
+      try {
+        const reply = await fetch("/api/triage", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ text: document.querySelector("#message").value }),
+        });
+        const data = await reply.json();
+        if (reply.status === 400 && data.status === "invalid_input") {
+          result.textContent = "Введите непустой текст заявки.";
+        } else if (!reply.ok) {
+          throw new Error("Request failed");
+        } else if (data.status === "ready" && Object.hasOwn(topics, data.topic) &&
+                   typeof data.draft === "string" && data.draft.trim()) {
+          result.textContent = `Тема: ${topics[data.topic]}\n\nЧерновик ответа:\n${data.draft}`;
+        } else if (data.status === "manual_review") {
+          result.textContent = "Не удалось подготовить ответ автоматически. Обработайте заявку вручную.";
+        } else {
+          throw new Error("Unexpected response");
+        }
+      } catch {
+        result.textContent = "Не удалось получить результат. Проверьте соединение и повторите попытку.";
+      } finally {
+        button.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>
